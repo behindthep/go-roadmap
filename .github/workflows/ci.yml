@@ -1,0 +1,42 @@
+# Запускается при каждом пуше в любую ветку и при создании Pull Request в main. Проверить, что код компилируется, линтер не ругается, а тесты проходят успешно.
+name: "Continuous Integration (Go)"
+
+# ВРЕМЕННО ОТКЛЮЧЕНО (уберите '#' когда появится код)
+# on:
+#   push:
+    # Звездочки означают: запускать при пуше абсолютно в любую ветку (включая фичи)
+#     branches:
+#       - '**'
+#   pull_request:
+    # Запускать проверки, когда этот PR хотят влить именно в главную ветку main
+#     branches:
+#       - 'main'
+
+jobs:
+  test-and-lint:
+    name: "Build and Test Go Code"
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Скачиваем код проекта
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Устанавливаем и настраиваем окружение Go
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22' # Укажите используемую вами версию Go
+          cache: true        # Автоматическое кэширование зависимостей (ускоряет сборку)
+
+      # 3. Скачиваем зависимости (go.mod / go.sum)
+      - name: Install dependencies
+        run: go mod download
+
+      # 4. Проверяем, что код успешно компилируется
+      - name: Build application
+        run: go build -v ./...
+
+      # 5. Запускаем модульные тесты
+      - name: Run unit tests
+        run: go test -v -race -covermode=atomic ./...
