@@ -1,6 +1,5 @@
-# ==============================================================================
 # Переменные (Настройки проекта)
-# ==============================================================================
+
 MODULE_NAME := $(shell head -n 1 go.mod | cut -d' ' -f2)
 BINARY_NAME := my-go-app
 MAIN_PATH   := ./main.go
@@ -11,9 +10,8 @@ IMAGE_NAME  := $(BINARY_NAME)
 GREEN       := $(shell printf "\033[32m")
 RESET       := $(shell printf "\033[0m")
 
-# ==============================================================================
 # Команды (Phony Targets)
-# ==============================================================================
+
 .PHONY: all help tidy fmt lint build run test test-cover clean docker-build
 
 all: help
@@ -50,7 +48,7 @@ build: tidy fmt
 	@echo "$(GREEN)⇒ Building binary [$(BINARY_NAME)]...$(RESET)"
 	CGO_ENABLED=0 go build -ldflags="-s -w" -o ./bin/$(BINARY_NAME) $(MAIN_PATH)
 
-# автоматически скачает зависимости, отформатирует код, скомпилирует его в папку ./bin/ и сразу запустит ваше приложение.
+# скачает зависимости, отформатирует код, скомпилирует его в папку ./bin/ и сразу запустит приложение.
 run: build
 	@echo "$(GREEN)⇒ Running application...$(RESET)"
 	./bin/$(BINARY_NAME)
@@ -60,7 +58,7 @@ test:
 	@echo "$(GREEN)⇒ Running unit tests...$(RESET)"
 	go test -v -race -cover ./...
 
-# запустит тесты, посчитает процент покрытия кодом и автоматически откроет красивую интерактивную страницу в вашем браузере, где покажет, какие строки кода покрыты тестами, а какие нет.
+# запустит тесты, посчитает процент покрытия кодом и откроет интерактивную страницу в браузере, где покажет, какие строки кода покрыты тестами, а какие нет.
 test-cover:
 	@echo "$(GREEN)⇒ Running tests with coverage report...$(RESET)"
 	go test -coverprofile=coverage.out ./...

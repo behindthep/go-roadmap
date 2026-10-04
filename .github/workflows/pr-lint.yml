@@ -1,4 +1,3 @@
-# проверяет текст на GitHub. правильность названий PR.
 name: "Lint PR Title"
 
 on:

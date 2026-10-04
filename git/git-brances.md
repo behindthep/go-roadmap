@@ -21,21 +21,15 @@
 ---
 
 ## 2. Отправка ветки на сервер
-После того как коммиты объединены, отправьте ветку в удаленный репозиторий (eсли вы планируете делать Squash на GitHub, локальный интерактивный rebase (шаг 1) делать не нужно):
+После того как коммиты объединены, отправьте ветку в удаленный репозиторий (eсли вы планируете делать Squash на GitHub, локальный интерактивный rebase (шаг 1) не нужен):
 ```bash
 git push -u origin имя-ветки
 ```
-*Флаг `-u` свяжет ветки, и дальше в этой ветке можно будет писать просто `git push`.*
+*Флаг `-u` свяжет ветки, и дальше в этой ветке можно будет писать `git push`.*
 
 ---
 
 ## 3. Слияние с основной веткой (main)
-
-### Вариант А: Через интерфейс GitHub
-
-Выберите **Squash and merge**. GitHub (при включенной настройке) сам удалит удаленную копию ветки.
-
-### Вариант Б: Локально через терминал (Rebase + Fast-Forward)
 
 1. **Находясь в своей ветке обновите локальный main**:
    ```bash
@@ -45,18 +39,18 @@ git push -u origin имя-ветки
    ```bash
    git rebase origin/main
    ```
-   *Теперь ваша рабочая ветка растет прямо из самой свежей точки `main`.*
+   *Рабочая ветка растет прямо из самой свежей точки `main`.*
 3. **Влейте изменения в main через Fast-Forward**:
    ```bash
    git switch main
    git merge имя-ветки
    ```
 
-* **`git rebase main` (в своей ветке):** Git берет вашу рабочую ветку, приподнимает её и **ставит сверху на свежий фундамент `main`**. История прямой.
+* **`git rebase main` (в своей ветке):** Git **ставит рабочую ветку на свежий фундамент `main`**.
 * Рабочая ветка уже стоит на вершине `main`, `git merge` просто сдвигает указатель `main` вперед (**Fast-forward перемотка**).
 * **⚠️ НЕЛЬЗЯ `git rebase имя-ветки` на ветке `main`?** `main` перепишется поверх временной ветки.
 
-4. **Отправьте обновленный main на сервер**:
+1. **Отправьте обновленный main на сервер**:
    ```bash
    git push origin main
    ```
@@ -70,8 +64,18 @@ git push -u origin имя-ветки
   git switch main
   git pull
   git branch -d имя-ветки
-  git remote prune origin       # чистим ссылки на удаленные ветки
   # Allias deletes local branches that no longer exist on GitHub
   git gone
+
   git push origin --delete имя-ветки # На сервере
   ```
+
+When PR is merged and you are ready to publish a new stable version:
+
+```bash
+git co main
+git pull
+# Trigger the semantic versioning and CHANGELOG.md manager
+release
+git push --follow-tags origin main
+```
