@@ -63,7 +63,7 @@ git push -u origin имя-ветки
   ```bash
   git switch main
   git pull
-  git branch -d имя-ветки
+  git branch -D имя-ветки
   # Allias deletes local branches that no longer exist on GitHub
   git gone
 
