@@ -33,7 +33,3 @@ go build main.go
 
 - Web: Построение web-сервисов, web-серверов
 - ПО: Разработка ПО, благодаря своей производительности
-
----
-
-https://www.youtube.com/watch?v=xoz-Y9T8gRc
