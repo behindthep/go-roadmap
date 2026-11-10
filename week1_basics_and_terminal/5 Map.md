@@ -13,7 +13,3 @@ sammy := map[string]string{"name": "Sammy", "animal": "shark", "color": "blue", 
 
 fmt.Println(sammy["color"])
 ```
-
----
-
-https://www.youtube.com/watch?v=P_SXTUiA-9Y
