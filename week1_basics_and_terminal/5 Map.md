@@ -413,11 +413,13 @@ func tophash(hash uintptr) uint8 {
 
 В каждом бакете хранится не больше 8 значений.
 
+```go
 0    1    2    3    4    5    6    7
 HOB  HOB  HOB  HOB  HOB  HOB  HOB  HOB
 Hash Hash Hash Hash Hash Hash Hash Hash
 K K K K K K K K      V V V V V V V V
              overflow
+```
 
 Если возникла ситуация, что в бакет нужно положить 9 значение: создаётся новый пустой бакет и ссылка на него сохраняется в изначальном бакете. 9 значений сохраняется в новом бакете.
 
