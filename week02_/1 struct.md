@@ -10,6 +10,7 @@ fmt.Printf("%T %#v \n", customStr, customStr) // тип OurString и значе�
 customStr = "What is up?" // OurString, What is up?
 
 // %v  - {Vasya 28}
+// %+v - {Name:Vasya Age:28}
 // %#v - main.Person{Name:"Vasya", Age:28}
 ```
 
