@@ -710,7 +710,7 @@ sort.Ints(nums)
 // [1 2 3]
 
 words := []string{"go", "append", "slice"}
-sort.Strings(words)
+sort.Strings(words) // alphabet
 // [append go slice]
 ```
 
