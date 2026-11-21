@@ -35,6 +35,22 @@ p := &data // pointer to array
 s := data[1:4] // slice from array
 ```
 
+Bound check
+
+```go
+array := [3]int{1,2,3}
+idx := 4 // -1,
+data[idx] // panic
+data[4] // compilation error
+data[-1] // compilation error
+```
+
+cap(arr) = len(arr)
+
+Only == and != operators allow for array (<, <= don't)
+
+Массив никогда != nil. Всегда заполняется количеством указанных элементов.
+
 ### Структуры данных
 
 Любая базовая вещь в программировании, используется нами постоянно, даже если мы об этом не задумываемся.
