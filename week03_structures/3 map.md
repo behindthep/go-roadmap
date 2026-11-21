@@ -24,6 +24,89 @@ map в реальных сервисах:
 - система авторизации. ключ: sessionID -> значение: данные сесии
 
 
+### Internals (classic/old version)
+
+map в Go — встроенная hash table. O(1) среднее на вставку, поиск, удаление. Любой comparable тип в качестве ключа: int, string, struct без слайсов и map внутри
+
+Под капотом массив "корзин" (buckets). Хеш-функция распределяет ключи по корзинам. Идеальная структура для случайного доступа по ключу
+
+Что важно сразу:
+- range дает разный порядок каждый раз (намеренно)
+- nil-map можно читать (получишь zero value), писать — паника
+- map не thread-safe, конкурентная запись = паника
+- map передается по reference, под капотом указатель
+
+С Go 1.24 (февраль 2025) реализация map переписана на Swiss tables.
+Классическую версию спрашивают на собесах, разберём её ниже:
+
+#### Структура под капотом
+
+1) HMAP - header:
+- count - of elements
+- B - log2 buckets numbers (2^B buckets)
+- buckets - pointer to buckets array
+- oldbuckets - pointer to old array during the growth
+
+2) BMAP (Bucket) - to 8 key-val pairs:
+- tophas[8] - 8 hash bit on top for each slot
+- keys[8]
+- values[8]
+- overflow - pointer to next bucket in chain
+
+3) Hash-function returns 64-bit hash. From it:
+- low B bit - bucket index in array
+- top 8 bit - tophash for fast comparing insdie bucket
+
+When 8 buckets sloats are full - overflow bucket is added. It turn out to Chain.
+
+#### Get and Put
+
+1) Get(key):
+- calculate hash(key)
+- low B bit -> bucket index
+- top 8 bit -> required tophash
+- Going by bucket slowt: compare tophash with tophash[i]
+- if tophash correct - compare keys (full equlness)
+- if not - go in overflow and repeat
+- if come to an end of chain without required result - return zero value
+
+2) Put(key, value):
+- Same steps, finding existing key or first empty slot
+- if there is not empty in bucket + overflow - allocate new overflow bucket
+- if load factor > 6.5 - grow is starting
+
+Why tophash needed:
+compare 1 byte faster than 16-byte string or complex struct. Tophash - fast filter before full keys comparing.
+
+#### Growth and Evacuation
+
+Conditions for growth:
+- Load factor > 6.5 (average bucket fill) - double grow, size doubles
+- too many overflow buckets with low load factor - same-size grow, reorganisation without increase.
+
+Why is Incrimental:
+- evacuation is incrimental. By grow array isn't moving fully by 1 shot. On each operatino (Get/Put) 1-2 old buckets moving to new array
+- grow on map with million elements by 1 show occures pause in tens millisec. With Incrimental - load is spread.
+
+During the grow:
+1) oldbuckets point to an old array
+2) buckets - on new
+3) Reading checks both, writing writes to new
+When all is evacuated, oldbuckets are being released. Garbage collector takes old memory
+
+#### Underwater stones
+- range gives random order: on start range choose random start bucket. Don't write code, that rely on keys oreder
+- Parallel writing - panic:
+    - map aren't thread-safe. concurrent map writes -> fatal error
+    - For concurent accsess: sync.RWMutes over map or sync.Map
+- Nil-Map:
+    - var m map[string]int - m = nil. Read/range work(zero value). Write - panic
+    - Always init through make or literal
+- Pointer to value is not allow:
+    - &m[k] - not compilable. Bucket can move in case of grow, pointer would be invalid
+    - Need pointer - store pointer itself like map values
+- Size during init: make(map[K]V, hint) - reserve place for N elements. On big map applies put speed in times by absence series of grow.
+
 ### Устройство map (старая реализация)
 
 ключ -> хэш-функция -> число(хэш) -> хэш-таблица (массив bucket'ов)
