@@ -100,3 +100,40 @@ func main() {
 
 - Нельзя использовать для обычной обработки ошибок.
 - Может скрывать реальные проблемы в коде.
+
+---
+
+Ошибки, panic и recover: отвечаем так, чтобы интервьюер улыбнулся 😎
+
+Error-handling в Go - лакмусовая бумажка инженерной культуры. Расскажи по пунктам - и не оплошаешь.
+
+1️⃣  Ошибка — это значение, а не исключение
+💞 Интерфейс error + idiома if err != nil { … } = явный контроль.
+
+
+val, err := strconv.Atoi("42")
+if err != nil { return 0, fmt.Errorf("parse: %w", err) }
+
+
+2️⃣ Когда panic допустима, а когда — нет 🚨
+💞panic - для truly unrecoverable: индекс за границей, nil-map.
+💓Логика приложения должна возвращать error, а не паниковать.
+
+3️⃣ recover для безопасного сервера 🛡️
+
+
+func safeHandler(h http.HandlerFunc) http.HandlerFunc {
+    return func(w http.ResponseWriter, r *http.Request) {
+        defer func() {
+            if rec := recover(); rec != nil {
+                log.Printf("panic: %v", rec)
+                http.Error(w, "internal error", http.StatusInternalServerError)
+            }
+        }()
+        h(w, r)
+    }
+}
+
+
+Вывод:
+Четко разделяешь error vs panic, умеешь оборачивать и восстанавливать - +100 к доверию и к предложению! 💰

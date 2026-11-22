@@ -97,3 +97,35 @@ sync.Atomic в Go реализует атомарные операции на у
 - Ограниченный набор операций
 - Только примитивные типы
 - Нет блокировок на уровне ОС
+
+---
+
+RWMutex и atomic: отвечаем про синхронизацию так, чтобы тимлид сказал «берём!» 🌟
+
+1️⃣ Почему одного Mutex-а мало?
+⚪️sync.Mutex блокирует и чтение и запись - плохо, когда 99 % операций - чтение.
+🟡sync.RWMutex разделяет RLock/Lock: несколько читателей vs один писатель.
+
+var mu sync.RWMutex
+func (c *cache) Get(k string) (v int, ok bool) {
+    mu.RLock(); defer mu.RUnlock()
+    v, ok = c.data[k]
+    return
+}
+func (c *cache) Set(k string, v int) {
+    mu.Lock(); defer mu.Unlock()
+    c.data[k] = v
+}
+
+
+2️⃣ atomic: микролок для счётчиков ⚡
+
+Для простых чисел используем atomic.AddInt64, atomic.LoadUint32 - дешевле, чем мьютекс
+
+var hits int64
+func hit() { atomic.AddInt64(&hits, 1) }
+func readHits() int64 { return atomic.LoadInt64(&hits) }
+
+
+Вывод:
+Различаешь случаи Mutex/RWMutex/atomic, умеешь выбирать по нагрузке - +100 очков к уровню senior и к жирному офферу! 💰
