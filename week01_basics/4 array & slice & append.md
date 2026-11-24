@@ -147,7 +147,7 @@ s2 независимой копией, но копии нет. Нескольк
 
 append — встроенная функция, добавляет один или несколько элементов (через , или ...) того же типа в конец slice и возвращает обновлённый slice. работает только со slice
 
-К arrayу append не применяют напрямую, потому что размер array фиксирован и входит в тип.
+К arrayу append не применяют напрямую, размер array фиксирован и входит в тип.
 
 ```go
 arr := [3]int{1, 2, 3}
@@ -849,64 +849,221 @@ fmt.Println(string(b))
 
 #### Как собрать slice из map
 
-![alt text](image-12.png)
-
 Map и slice часто используют вместе:
-- Map даёт быстрый доступ по ключу
-- slice удобен для порядка, сортировки и вывода.
+- Map для быстрого доступа по ключу O(1)
+- slice для хранения порядка, сортировки и вывода. Позволяет работать с коллекцией как с массивом.
 
-собрать ключи map в slice:
+Map + Slice, когда нужно быстро искать по ключу и при этом сохранять порядок элементов.
 
-m := map[string]int{
-"go": 3,
-"slice": 2,
-"map": 1,
+- Уникальные элементы с сохранением порядок (теги, категории)
+- Быстрый поиск по id + обход в порядке добалвения
+- Кэширование объектов
+- Построение графов и связей
+- Реализация очередей, списков задач и истории
+
+Где применять:
+- коллекции с уникальным id и порядком
+- кэш и словари с обходом по порядку
+- Игровые сущности, очереди, истории действия
+- графы, зависимости, маршрутные таблицы.
+
+```go
+map[id]index            items (slice)
+(поиск по id)           (порядок элементов)
+id      index           0   1   2
+101  ->   0   ->        {101, "Go"}
+102  ->   1   ->        {102, "Python"}
+103  ->   2   ->        {103, "Rust"}
+```
+
+Нашёл индекс по id в map -> взял элемент из slice.
+
+```go
+type Item struct {
+    ID int
+    Name string
 }
+
+type Store struct {
+    Index map[int]int // id -> index в items
+    Items []Item      // хранит порядок
+}
+
+func NewStore() *Store {
+    return &Store{
+        index: make(map[int]int),
+        items: make([]Item, 0),
+    }
+}
+
+func (s *Store) Add(it Item) {
+    if _, ok := s.index[it.ID]: ok {
+        return // уже есть
+    }
+
+    s.index[it.ID] = len(s.itmes) // сохраняем индекс
+    s.items = append(s.itmes, it) // добавляем в конец
+}
+
+// Добавляем
+s.Add(Items[101, "Go"])
+s.Add(Items[102, "Python"])
+s.Add(Items[103, "Rust"])
+
+// Быстрый поиск по id
+i := s.index[102] // 1
+it := s.items[i] // {102, "Python"}
+
+// Обход в порядке добавления
+for _, it := range s.items {
+    fmt.Println(it.ID, it.Name)
+}
+```
+
+#### Удаление элемента из map и сдвиг хвоста slice, чтобы сохранить порядок.
+
+```go
+func (s *Store) Remove(id int) {
+    i, ok := s.index[id]
+    if !ok { return }
+
+    // удаляем из map
+    delete(s.index, id)
+
+    // сдвигаем хвост slice влево
+    copy(s.items[i:], s.items[i+1:])
+    s.items = s.items[:len(s.items)-1]
+
+    // Обновляем индексы в map для сдвинутых элементов
+    for j := i; j < len(s.items); j++ {
+        s.index[s.items[j].ID] = j
+    }
+}
+```
+
+```go
+Было:
+Индексы 0   1   2   3
+items   101 102 103 104
+
+Удаляем id = 102 (индекс = 1)
+
+Стало:
+Индексы 0   1   2
+items   101 103 104
+```
+
+Порядок сохраняется, индексы актуализируются.
+
+#### Удаление без сохранения порядка элементов (быстро - O(1)).
+
+Если не уверен, что порядок важен - выбирай unordered remove.
+
+Меняем удаляемый элемент на последний и режем хвост. Индексы обновляем только для последнего.
+
+```go
+func (s *Store) RemoveUnordered(id int) {
+    i, ok := s.index[id]
+    if !ok { return }
+
+    last := len(s.items) - 1
+
+    // ставим последний элмент на место удаляемого
+    s.items[i] = s.items[last]
+    s.index[s.items[i].ID] = i
+
+    // режем хвост
+    s.items = s.items[:last]
+    delete(s.index, id)
+}
+```
+
+Собрать ключи map в slice:
+
+```go
+m := map[string]int{
+    "go": 3,
+    "slice": 2,
+    "map": 1,
+}
+
 keys := make([]string, 0, len(m))
 for k := range m {
-keys = append(keys, k)
+    keys = append(keys, k)
 }
+
 sort.Strings(keys)
 fmt.Println(keys)
+```
 
 Собрать значения:
 
+```go
 values := make([]int, 0, len(m))
+
 for _, v := range m {
-values = append(values, v)
+    values = append(values, v)
 }
+```
 
 Собрать пары:
 
+```go
 type Pair struct {
-Key string
-Value int
+    Key string
+    Value int
 }
+
 pairs := make([]Pair, 0, len(m))
+
 for k, v := range m {
-pairs = append(pairs, Pair{Key: k, Value: v})
+    pairs = append(pairs, Pair{Key: k, Value: v})
 }
+```
+
+- Инициализируй map и slice правильно
+- Обновляй индексы, когда сдвигаешь элементы
+- Храни только нужные данные (не дублируй)
+- Для больших объёмов обрати внимание на память:
+Удалённые элементы из slice не освобождают память сразу. Если хранишь большьие объекты, обнуляй ячейку перед удалением:
+s.items[i] = Item{} // если Item содрежит большие данные.
+
+#### Производительность
+
+- Поиск по id в map: O(1)
+- Добавление в конец slice - амортизированно O(1)
+- Удаление с сохранение порядка - O(n)
+- Удаление без сохранения порядка - O(1)
+Операция           (ns/op)      Выделения   Память
+Add (append)        ~ 9,000     1           ~ 0.8 KB
+Remove (oredered)   ~ 35,000    2           ~ 1.5 KB
+RemoveUnoredered    ~ 7,000     0           ~ 0.4 KB
+
+#### Ошибки
+
+- Забыть удалить элемент из map
+- Не обновить индексы после сдвига
+- Хранить указатели на элементы slice - после удаления они могут стать невалидными.
+- Делать лишние копии slice.
+
+
+
 
 ### Append map
-Напрямую append к map неприменим.
 
-Неправильно:
+Напрямую append к map неприменим.
 
 ```go
 m := map[string]int{"a": 1}
 // append(m, ...)
 ```
 
-Правильно понимать так:
-
-map не растёт через append
-map обновляется присваиванием по ключу
-но если значение в map — slice, тогда append уже уместен
+map не растёт через append, а обновляется присваиванием по ключу.
+Если значение в map — slice - append уместен
 
 ```go
 m := map[string][]int{"a": {1, 2, 3}}
 m["a"] = append(m["a"], 4, 5)
-Append golang array
 ```
 
 ### Как скопировать map, slice и interface
@@ -914,97 +1071,160 @@ Append golang array
 
 Со slice:
 
+```go
 src := []int{1, 2, 3}
 dst := make([]int, len(src))
 copy(dst, src)
+```
 
 С map:
 
+```go
 src := map[string]int{"a": 1}
 dst := make(map[string]int, len(src))
 for k, v := range src {
-dst[k] = v
+    dst[k] = v
 }
+```
 
 Если внутри map лежат slice, нужно копировать и их:
 
+```go
 src := map[string][]int{
-"a": {1, 2, 3},
+    "a": {1, 2, 3},
 }
 
 dst := make(map[string][]int, len(src))
 for k, v := range src {
-copied := make([]int, len(v))
-copy(copied, v)
-dst[k] = copied
+    copied := make([]int, len(v))
+    copy(copied, v)
+    dst[k] = copied
 }
+```
 
 С interface{} или any универсального простого ответа нет. Надо знать реальный тип внутри. Если там slice, копируешь как slice. Если map, как map. Если структура с указателями, нужно решать, нужна поверхностная или глубокая копия.
 
 Не пытаться сделать deep copy на все случаи жизни. Безопаснее явно копировать конкретные структуры данных, которые используются в твоём коде.
 
-### Производительность: как правильно инициализировать slice
+### Производительность и preallocate: как инициализировать slice
 
-![alt text](image-13.png)
+Если знаешь примерный размер - выделяй сразу. Привычка - даёт прирост производительности.
 
-slice []Foo, и мы хотим получить []Bar такой же длины.
+Предвыдление памяти уменьшает количество перевыделений и копирований при росте slice.
+
+```go
+Без preallocate:
+cap=0   cap=1   cap=2   cap=4       cap=8
+[]      1       1 2     1 2 3 4     1 2 3 4 5 6 7 8    ->  ...
+```
+
+При каждом увелечинии cap - копирование.
+Много перевыделений и копирований = больше затрат времени и памяти.
+
+```go
+С preallocate
+cap=8
+1 2 3 4 5 6 7 8    ->   ...
+```
+
+Данные добавляются без перевыдлений и копирований.
+Одна аллокация = быстрее и экономичнее.
+
+#### Когда использовать preallocate
+
+- Известен примерны размер данных
+- Много append в циклах
+- Обработка больших объёмов данных, файлов, потоков, API
+
+```go
+// без preallocate
+var s []int
+for i := 0; i < n; i++ {
+    s = append(s,i )
+}
+
+// c preallocate
+s := make([]int, 0, n) // len=0, cap=n
+for i := 0; i < n; i++ {
+    s = append(s,i )
+}
+```
+
+Быстрее по времени и меньше аллокаций.
+
+slice []Foo, хотим получить []Bar такой же длины.
 
 Плохой вариант для большого количества данных:
 
+```go
 func convert(foos []Foo) []Bar {
-bars := make([]Bar, 0)
-for _, foo := range foos {
-bars = append(bars, fooToBar(foo))
+    bars := make([]Bar, 0)
+    for _, foo := range foos {
+        bars = append(bars, fooToBar(foo))
+    }
+    return bars
 }
-return bars
-}
+```
 
-для большого входа Go будет несколько раз расширять базовый array, выделять новую память и копировать элементы.
+для большого входа Go несколько раз расширять базовый array, выделять новую память и копировать элементы.
 
-Лучше задать ёмкость:
+задать ёмкость:
 
+```go
 func convert(foos []Foo) []Bar {
-bars := make([]Bar, 0, len(foos))
-for _, foo := range foos {
-bars = append(bars, fooToBar(foo))
-}
-return bars
-}
+    bars := make([]Bar, 0, len(foos))
 
-Ещё быстрее, если длина результата точно равна длине входа:
+    for _, foo := range foos {
+        bars = append(bars, fooToBar(foo))
+    }
+    return bars
+}
+```
 
+Ещё быстрее, если длина результата равна длине входа:
+
+```go
 func convert(foos []Foo) []Bar {
-bars := make([]Bar, len(foos))
-for i, foo := range foos {
-bars[i] = fooToBar(foo)
+    bars := make([]Bar, len(foos))
+
+    for i, foo := range foos {
+        bars[i] = fooToBar(foo)
+    }
+    return bars
 }
-return bars
-}
+```
 
 Почему второй вариант иногда всё равно выбирают? append часто проще читать, особенно когда на один входной элемент приходится несколько выходных.
 
+```go
 func collectKeys(items []Item) []string {
-keys := make([]string, 0, len(items)*2)
-for _, item := range items {
-keys = append(keys, item.StartKey, item.EndKey)
-}
-return keys
-}
+    keys := make([]string, 0, len(items)*2)
 
-Через индексы это будет быстрее на микробенчмарке, но хуже для чтения:
+    for _, item := range items {
+        keys = append(keys, item.StartKey, item.EndKey)
+    }
+    return keys
+}
+```
 
+Через индексы быстрее на микробенчмарке, но хуже для чтения:
+
+```go
 func collectKeys(items []Item) []string {
-keys := make([]string, len(items)*2)
-for i, item := range items {
-keys[i*2] = item.StartKey
-keys[i*2+1] = item.EndKey
-}
-return keys
-}
+    keys := make([]string, len(items)*2)
 
-В реальном коде важен баланс. Если участок не горячий, читаемость часто важнее экономии нескольких процентов.
+    for i, item := range items {
+        keys[i*2] = item.StartKey
+        keys[i*2+1] = item.EndKey
+    }
+    return keys
+}
+```
+
+Важен баланс. Если участок не горячий, читаемость часто важнее экономии нескольких процентов.
 
 Если длина результата известна и ты заполняешь каждый элемент один к одному, используй make([]T, len(src)) и запись по индексу. Если количество элементов зависит от условий или на один вход приходится переменное число выходов, используй make([]T, 0, expected) и append.
+
 
 ### Утечка памяти из-за нарезки большого slice
 
