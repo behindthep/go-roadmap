@@ -237,7 +237,7 @@ func main() {
 
 * Nil map - читать можно, писать нельзя
 
-Код с nil map компилируется, ошибка вылезет уже в рантайме.
+Код с nil map компилируется, ошибка вылезет уже в рантайме. Сервис падает в runtime, компилятор не предупредит.
 
 ```go
 func main() {
@@ -285,7 +285,8 @@ func main() {
 ```
 
 #### Не все поля безопасны.
-Если в структуре есть map, slice, chan или что-то, где для работы нужна инициализация, даже если zero value может быть валидным, но неудобным или опасным.
+Если в структуре есть map, slice, chan или что-то, где для работы, записи нужна инициализация, даже если zero value (nil) может быть валидным, но неудобным или опасным.
+
 Если внутри map и собираешься туда писать, нужен конструктор или явная инициализация.
 
 ```go
@@ -310,8 +311,9 @@ type Item struct {
 	Value string
 }
 
+// Zero value опасен, нужен конструктор
 type Cache struct {
-    items map[string]Item // nil
+    items map[string]Item // nil, запись panic
 }
 
 func NewCache() *Cache {
@@ -328,6 +330,7 @@ NewCache() нужен, иначе поле items будет nil, и запись
 * конструктор не даёт пользы
 
 ```go
+// Zero value рабочий, конструктор НЕ нужен
 type Counter struct {
     count int // 0
 }
@@ -340,11 +343,11 @@ func (c *Counter) inc() {
 Не тратить время на лишнюю инициализацию (make), вызывать конструктор, писать New.
 
 Примеры из стандартной библиотеки:
-- sync.Mutex{}
-- bytes.Buffer{}
-- strings.Builder{}
-- sync.WaitGroup{}
-- sync.Once{}
+- sync.Mutex{} -> готов к Lock/Unlock
+- bytes.Buffer{} -> готов к Write/Read
+- strings.Builder{} -> готов к WriteString
+- sync.WaitGroup{} -> готов к Add/Wait
+- sync.Once{} -> готов к Do
 
 ```go
 import (

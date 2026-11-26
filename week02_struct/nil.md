@@ -37,11 +37,11 @@ fmt.Println(user.Name)
 ```
 
 значение nil могут иметь только ссылочные типы:
-указатели
-срезы
-карты
-каналы
-функции
+указатели pointer
+срезы slice
+карты map
+каналы channel
+функции func
 интерфейсы
 var p *int
 var s []int
@@ -51,14 +51,17 @@ var fn func()
 var v interface{}
 
 zero value nil. Если переменная одного из этих типов создана, но не инициализирована, её значение nil.
+nil не универсален - zero value только для части типов.
 
-Какие типы не могут быть nil:
+Какие типы не могут быть nil (базовые):
 int
 float64
 bool
 string
 struct
 array
+
+У них есть свои zero values.
 
 var x = nil не компилируется
 у nil нет собственного типа по умолчанию. Компилятор не понимает, что именно вы хотели получить: указатель, срез, канал, map или интерфейс.
@@ -84,10 +87,6 @@ nil := 123
 fmt.Println(nil)
 }
 ```
-
-![alt text](image-1.png)
-
-![alt text](image-2.png)
 
 Go переменная после объявления уже содержит корректное значение.
 
@@ -139,26 +138,55 @@ nil channel блокирует чтение и запись
 nil func нельзя вызывать
 nil interface может оказаться не совсем nil
 
-Nil pointer и panic
-![alt text](image-3.png)
+### Nil pointer и panic
 
-panic: runtime error: invalid memory address or nil pointer dereference
+Указатель указывает на значение - всё ок:
+Pointer не nil - значит указывает на данные. Можно работать.
+
+```go
+type User struct {
+    Name string
+}
+
+var u := &User{Name: "Maks"} // указатель на объект
+fmt.Println(u.Name)
+```
+
+u *User указывает на значение User{Name: "Maks"}
+
+Указатель = nul - panic:
 
 ```go
 var age *int
 fmt.Println(*age)
+
+var u *User // age == nil
+fmt.Println(u.Name) // panic: runtime error: invalid memory address or nil pointer dereference
 ```
 
-age = nil. *age - сходи по адресу, который лежит внутри указателя, и достань значение. Но адреса нет.
-В результате программа падает.
+*age - сходи по адресу, который лежит внутри указателя, и достань значение. Но адреса нет.
+
+Pointer == nil. Go не знает куда идти, падает с panic
+u *User - nil, не указывает ни на что.
 
 Указатель не хранит само число. Он хранит адрес, где это число лежит.
 Если адрес отсутствует, указатель nil.
 Разыменование *ptr без адреса, попытка прочитать память по пустому месту. Runtime не разрешает.
 
+
 ```go
 if age != nil {
-fmt.Println(*age)
+    fmt.Println(*age)
+}
+
+// Всгеда проверять указаетль перед использованием
+if u != nil {
+    ...
+}
+
+// Возвращять ошибки вместо nil, где это возможно
+if u == nil {
+    return errors.New("user not found")
 }
 ```
 
@@ -166,11 +194,11 @@ fmt.Println(*age)
 
 ```go
 func PrintAge(age *int) {
-if age == nil {
-fmt.Println("Возраст не указан")
-return
-}
-fmt.Println(*age)
+    if age == nil {
+        fmt.Println("Возраст не указан")
+        return
+    }
+    fmt.Println(*age)
 }
 ```
 
@@ -268,17 +296,18 @@ Items []string `json:"items"`
 Items: []string{}
 чтобы наружу уходило [], а не null.
 
-Nil map: читать можно, писать нельзя
-
-![alt text](image-5.png)
-
-Map ведёт себя совсем иначе, чем slice.
-
-var scores map[string]int
+### Nil map: читать можно, писать нельзя
 
 Из неё можно читать:
 
-fmt.Println(scores["go"]) // 0
+```go
+var scores map[string]int
+value, ok := scores["go"] // 0, false
+fmt.Println(value) // 0
+```
+
+nil map -> чтение по ключу "go" -> результат 0
+Если ключа нет или map == nil, для чтения runtime возвращает zero value типа значения. Это безопасно.
 
 ```go
 value, ok := scores["go"]
@@ -290,19 +319,18 @@ fmt.Println(ok) // false
 
 записывать в nil map нельзя:
 
-scores["go"] = 100
-
-Это вызовет panic:
-
-assignment to entry in nil map
-читать можно, а писать нельзя. для чтения runtime может вернуть zero value типа значения. Это безопасно.
-
-для записи нужна уже реальная внутренняя структура map. Если её нет, писать некуда.
-
 ```go
+var scores map[string]int
+
+scores["go"] = 100 // panic - assignment to entry in nil map
+
+// Для записи структура map должна быть инициалаизирована - сущ. в памяти. Если её нет, писать некуда.
 scores := make(map[string]int)
-scores["go"] = 100
 ```
+
+nil map -> запись по ключу "go" = 100 -> panic
+
+Сначала создаём mape через make, потом читаем и пишем.
 
 ```go
 type Cache struct {
