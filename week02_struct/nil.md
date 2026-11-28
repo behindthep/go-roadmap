@@ -6,7 +6,99 @@
 nil slice работает нормально
 nil channel блокирует goroutine навсегда
 
-![alt text](image.png)
+### nil в Go: нулевое значение для ссылочных типов
+В Go нет null (NULL, None). Есть nil — нулевое значение для определённых типов.
+
+#### УКАЗАТЕЛИ (*T)
+Указатель, который ни на что не указывает.
+```go
+var p *int
+fmt.Println(p)
+// <nil>
+```
+
+#### СЛАЙСЫ ([]T)
+Слайс без массива под капотом.
+```go
+var s []int
+fmt.Println(s)
+// <nil>
+```
+
+#### КАРТЫ (map[K]V)
+Карта без выделенной памяти.
+```go
+var m map[string]int
+fmt.Println(m)
+// <nil>
+```
+
+#### КАНАЛЫ (chan T)
+Канал не связан ни с одним потоком.
+```go
+var ch chan int
+fmt.Println(ch)
+// <nil>
+```
+
+#### ФУНКЦИИ (func())
+Функция не указывает ни на одну реализацию.
+```go
+var f func()
+fmt.Println(f)
+// <nil>
+```
+
+#### ИНТЕРФЕЙСЫ (interface{})
+Интерфейс без значения и без типа.
+```go
+var i interface{}
+fmt.Println(i)
+// <nil>
+```
+
+#### NIL != NULL
+- В других языках: NULL — Отсутствие значения и неизвестный тип
+- В Go: nil — Нулевое значение конкретного типа
+
+#### ЧТО МОЖНО ДЕЛАТЬ С NIL
+- Сравнивать с nil:
+```go
+if x == nil { ... }
+```
+- Присваивать nil:
+```go
+var p *int = nil
+```
+- Передавать в функции:
+```go
+doSomething(nil)
+```
+- Но не все операции безопасны! (*p, запись в map, отправка в nil-канал)
+
+#### ПРИМЕРЫ ЛОВУШЕК
+- Разыменование nil-указателя:
+```go
+var p *int
+*p // panic: nil pointer dereference
+```
+- Запись в nil map:
+```go
+var m map[string]int
+m["a"] = 1 // panic: assignment to entry in nil map
+```
+- Отправка в nil channel:
+```go
+var ch chan int
+ch <- 1 // goroutine блокируется навсегда
+```
+
+ПРАВИЛО ПРОСТО: nil — это нормально. Это часть дизайна Go. Главное — понимать, где nil безопасен, а где может привести к ошибкам.
+
+КАК РАБОТАЕТ NIL ВНУТРИ:
+nil -> не указывает ни на что -> нет выделенной памяти -> nil
+
+ЗАПОМНИ: nil — не ошибка. Ошибка — не знать, как и где его использовать.
 
 nil = не отдельный тип данных, а спец нулевое значение, означающее здесь пока нет объекта. может использоваться только для определённых типов.
 
@@ -352,7 +444,43 @@ Values: make(map[string]int),
 
 ### Nil channel: блокировка навсегда
 
-![alt text](image-6.png)
+### nil channel в Go
+Чтение и запись блокируются, закрытие вызывает panic
+
+#### Запись в nil channel (write to nil channel -> blocks)
+```go
+var ch chan int
+ch <- 10
+```
+Схема: sender -> nil channel -> блокируется
+Отправитель ждёт бесконечно, потому что канала для передачи по сути нет.
+
+#### Чтение из nil channel (read from nil channel -> blocks)
+```go
+var ch chan int
+value := <-ch
+```
+Схема: nil channel -> receiver -> блокируется
+Получатель ждёт данные бесконечно, но получить их неоткуда.
+
+#### close(nil channel) (close(nil channel) -> panic)
+```go
+var ch chan int
+close(ch)
+```
+Схема: nil channel -> ! -> panic: close of nil channel
+Закрывать nil channel нельзя.
+
+#### Итог
+- send в nil channel: блокируется
+- receive из nil channel: блокируется
+- close(nil channel): panic
+
+#### Как правильно
+```go
+ch := make(chan int)
+```
+Сначала инициализируйте канал через make, потом используйте его.
 
 Каналы ещё опаснее, вместо panic вы часто получаете тихий ступор.
 var ch chan int
@@ -452,11 +580,74 @@ return nil
 
 Интерфейс равен nil только тогда, когда у него одновременно нет и динамического типа, и значения. Если внутрь положить nil-указатель конкретного типа, значение будет nil, но тип уже задан, значит сам interface не nil.
 
-![alt text](image-7.png)
+### nil interface в Go
+Почему interface иногда выглядит как nil, но сравнение возвращает false
+
+#### Обычный nil interface
+type = nil, value = nil
+- type -> nil
+- value -> nil
+- v == nil -> true
+- У интерфейса нет ни типа, ни значения
+```go
+var v interface{}
+fmt.Println(v == nil) // true
+```
+
+#### Typed nil внутри interface
+type = *int, value = nil
+- type -> *int
+- value -> nil
+- v == nil -> false
+- Значение nil, но тип уже задан
+```go
+var p *int = nil
+var v interface{} = p
+fmt.Println(v == nil) // false
+```
+
+Главная идея: Interface в Go хранит пару: динамический тип + значение. Интерфейс равен nil только если оба поля равны nil.
+
+Где это часто встречается: Частая ловушка — typed nil в error и других интерфейсах.
 
 ### New vs Make: где тут nil
 
-![alt text](image-8.png)
+### new vs make в Go
+В чём разница и когда что использовать
+
+#### new (pointer to zero value)
+- Выделяет память под zero value
+- Возвращает указатель *T
+- Работает с любыми типами
+```go
+p := new(int)
+fmt.Println(*p) // 0
+fmt.Println(p == nil) // false
+```
+new(int) не даёт nil-указатель. Он даёт указатель на нулевое значение.
+
+#### make (initialized slice, map, channel)
+- Инициализирует внутреннюю структуру
+- Используется только для slice, map, channel
+- Возвращает готовое значение, не указатель
+```go
+s := make([]int, 0)
+m := make(map[string]int)
+ch := make(chan int)
+```
+make подготавливает slice, map и channel к нормальной работе.
+
+#### Сравнение new и make:
+- Что возвращает: new -> *T, make -> T
+- Для каких типов: new -> любые, make -> slice, map, channel
+- Zero value / инициализация: new -> zero value, make -> готовая структура
+- Частая ошибка: new -> путают с инициализацией map, make -> ждут указатель
+
+#### Запомнить проще всего:
+- new -> указатель на zero value
+- make -> готовые slice, map и channel
+
+Если нужно создать map, slice или channel для работы, обычно нужен make.
 
 многие путают инициализацию.
 
@@ -635,7 +826,146 @@ Go nil и go null — это одно и то же? Не совсем. nil в Go
 Чем nil slice отличается от nil map? nil slice можно безопасно использовать с len, range и append. Из nil map можно безопасно читать, но запись в неё вызывает panic.
 
 
-![alt text](image-9.png)
+### Nil в Go — шпаргалка / чек-лист
+Что можно делать с nil, где будет panic, где будет блокировка и о чём спрашивают на собеседовании
+
+#### 1. Что такое nil
+- nil — zero value для некоторых ссылочных типов
+- Это не 0, не false и не пустая строка
+- nil всегда существует в контексте конкретного типа
+
+Запомни: nil — это отсутствие значения у ссылочного типа
+
+#### 2. Какие типы могут быть nil
+- Могут быть nil:
+  - pointer
+  - slice
+  - map
+  - channel
+  - func
+  - interface
+- Не могут быть nil:
+  - int
+  - string
+  - bool
+  - struct
+  - array
+
+#### 3. Поведение nil по типам
+
+- Pointer:
+```go
+var p *int
+p == nil // -> true
+*p // -> panic
+```
+
+- Slice:
+```go
+var s []int
+s == nil // -> true
+len(s) // -> 0
+append(s, 1) // -> работает
+```
+
+- Map:
+```go
+var m map[string]int
+m["x"] // -> zero value
+m["x"] = 1 // -> panic
+```
+
+- Channel:
+```go
+var ch chan int
+<-ch // -> blocks
+ch <- 1 // -> blocks
+close(ch) // -> panic
+```
+
+- Func:
+```go
+var fn func()
+fn == nil // -> true
+fn() // -> panic
+```
+
+- Interface:
+```go
+var i interface{}
+// пустой interface == nil
+// typed nil внутри interface -> уже не nil
+```
+
+#### 4. Где будет panic
+- *nilPointer
+- nilPointer.Field
+- запись в nil map
+- close(nil channel)
+- вызов nil func
+
+Самая известная ошибка:
+```go
+panic: runtime error: invalid memory address or nil pointer dereference
+```
+
+#### 5. Где не panic, а другое поведение
+- len(nilSlice) -> 0
+- range nilSlice -> 0 итераций
+- append(nilSlice, x) -> работает
+- чтение из nil map -> zero value
+- чтение из nil channel -> blocks
+- запись в nil channel -> blocks
+
+nil не всегда ломает программу: иногда он даёт zero value, а иногда вешает выполнение
+
+#### 6. nil slice vs empty slice
+- nil slice:
+```go
+var s []int
+s == nil // -> true
+len(s) // -> 0
+// JSON -> null
+```
+- empty slice:
+```go
+s := []int{}
+s == nil // -> false
+len(s) // -> 0
+// JSON -> []
+```
+Для API это важная разница: null и [] — не одно и то же
+
+#### 7. Ловушка: nil interface
+```go
+var p *int = nil
+var v interface{} = p
+fmt.Println(v == nil) // false
+```
+Если внутри interface уже есть конкретный тип, даже nil-значение не делает весь interface равным nil
+Особенно часто это всплывает с error
+
+#### 8. new vs make
+- new:
+  - возвращает указатель
+  - создаёт pointer to zero value
+  - пример: new(int)
+- make:
+  - инициализирует внутреннюю структуру
+  - для slice, map, channel
+  - пример: make(map[string]int)
+new создаёт указатель, make подготавливает к использованию
+
+#### 9. Быстрый чек-лист перед собесом
+- Понимаю, какие типы могут быть nil
+- Знаю разницу между nil slice и empty slice
+- Помню, что чтение из nil map безопасно, а запись — нет
+- Помню, что nil channel блокирует read/write
+- Не путаюсь в nil interface
+- Знаю, когда использовать new, а когда make
+
+Частый вопрос на собесе: почему interface с typed nil не равен nil?
+
 
 nil в Go — не универсальный ноль и не буквальная копия null.
 
